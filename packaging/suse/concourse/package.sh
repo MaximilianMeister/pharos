@@ -11,7 +11,7 @@ sed -i "s|<password>|$OSC_PASSWORD|g" /root/.oscrc
 log "building the spec file"
 velum-git-resource/packaging/suse/make_spec.sh velum
 
-pushd velum-osc-resource/Virtualization:containers:Velum/velum 1> /dev/null
+pushd velum-osc-resource/home:m_meister:branches:Virtualization:containers:Velum/velum 1> /dev/null
   log "updating osc checkout to newest revision"
   osc up
   log "removing old specfile"
@@ -20,4 +20,4 @@ pushd velum-osc-resource/Virtualization:containers:Velum/velum 1> /dev/null
   cp ../../../velum-git-resource/packaging/suse/velum.spec .
 popd 1> /dev/null
 
-cp -a velum-osc-resource/Virtualization:containers:Velum/velum/. velum-osc-updated-resource/
+cp -a velum-osc-resource/home:m_meister:branches:Virtualization:containers:Velum/velum/. velum-osc-updated-resource/
