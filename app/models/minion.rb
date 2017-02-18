@@ -9,6 +9,8 @@ class Minion < ApplicationRecord
   class NotEnoughMinions < StandardError; end
   # Raised when we fail to assign a role on a minion
   class CouldNotAssignRole < StandardError; end
+  # Raised when invalid role is asked for
+  class InvalidRole < StandardError; end
 
   enum highstate: [:not_applied, :pending, :failed, :applied]
   enum role: [:master, :minion]
@@ -55,7 +57,7 @@ class Minion < ApplicationRecord
     end
     true
   rescue Velum::SaltApi::SaltConnectionException
-    errors.add(:base, "Failed to apply role #{new_role} to #{self.hostname}")
+    errors.add(:base, "Failed to apply role #{new_role} to #{hostname}")
     false
   end
   # rubocop:enable SkipsModelValidations

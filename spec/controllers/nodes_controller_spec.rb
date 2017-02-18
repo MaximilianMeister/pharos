@@ -116,4 +116,104 @@ RSpec.describe NodesController, type: :controller do
       end
     end
   end
+
+  # rubocop:disable RSpec/AnyInstance
+  # rubocop:disable RSpec/ExampleLength
+  # rubocop:disable RSpec/NestedGroups
+  describe "POST /nodes/:node_id/assign" do
+    let(:salt) { Velum::Salt }
+    let(:net_httpok_instance) { Net::HTTPOK.new(1, 200, "OK") }
+    let(:net_httpservererror_instance) { Net::HTTPServerError.new(1, 500, "ServerError") }
+
+    context "HTML rendering" do
+      context "when the minion exists" do
+        before do
+          sign_in user
+          Minion.create! [{ hostname: "master" }]
+        end
+
+        it "assigns the master role" do
+          allow(salt).to receive(:orchestrate).and_return(net_httpok_instance, {})
+          allow(net_httpok_instance).to receive(:code).and_return("200")
+          allow_any_instance_of(Minion).to receive(:assign_role).with("master").and_return(true)
+          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          expect(response.redirect_url).to eq "http://test.host/nodes"
+        end
+
+        # rubocop:disable RSpec/MessageChain
+        it "fails to assign the master role" do
+          allow_any_instance_of(Minion).to receive(:assign_role).with("master").and_return(false)
+          allow_any_instance_of(Minion).to receive_message_chain(:errors, :full_messages, :first)
+            .and_return("Some Error")
+          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          expect(flash[:error]).to be_present
+          expect(response.redirect_url).to eq "http://test.host/nodes"
+        end
+        # rubocop:enable RSpec/MessageChain
+
+        it "fails due to a wrong role being asked for" do
+          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :wrong
+          expect(flash[:error]).to be_present
+          expect(response.redirect_url).to eq "http://test.host/nodes"
+        end
+      end
+
+      context "when the minion doesn't exist" do
+        before do
+          sign_in user
+        end
+
+        it "fails to assign the master role" do
+          post :assign, node_id: 9999999, role: :master
+          expect(flash[:error]).to be_present
+          expect(response.redirect_url).to eq "http://test.host/nodes"
+        end
+      end
+    end
+
+    context "JSON response" do
+      context "when the minion exists" do
+        before do
+          sign_in user
+          Minion.create! [{ hostname: "master" }]
+          request.accept = "application/json"
+        end
+
+        it "assigns the master role" do
+          allow(salt).to receive(:orchestrate).and_return(net_httpok_instance, {})
+          allow(net_httpok_instance).to receive(:code).and_return("200")
+          allow_any_instance_of(Minion).to receive(:assign_role).with("master").and_return(true)
+          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          expect(response).to have_http_status(:ok)
+        end
+
+        it "fails to assign the master role" do
+          allow_any_instance_of(Minion).to receive(:assign_role).with("master").and_return(false)
+          allow_any_instance_of(Minion).to receive(:errors).and_return(base: ["Some Error"])
+          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          expect(response).to have_http_status(:unprocessable_entity)
+        end
+
+        it "fails due to a wrong role being asked for" do
+          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :wrong
+          expect(response).to have_http_status(:unprocessable_entity)
+        end
+      end
+
+      context "when the minion doesn't exist" do
+        before do
+          sign_in user
+          request.accept = "application/json"
+        end
+
+        it "fails to assign the master role" do
+          post :assign, node_id: 9999999, role: :master
+          expect(response).to have_http_status(:unprocessable_entity)
+        end
+      end
+    end
+  end
+  # rubocop:enable RSpec/AnyInstance
+  # rubocop:enable RSpec/ExampleLength
+  # rubocop:enable RSpec/NestedGroups
 end
