@@ -121,10 +121,6 @@ RSpec.describe NodesController, type: :controller do
   # rubocop:disable RSpec/ExampleLength
   # rubocop:disable RSpec/NestedGroups
   describe "POST /nodes/assign_roles" do
-    let(:salt) { Velum::Salt }
-    let(:net_httpok_instance) { Net::HTTPOK.new(1, 200, "OK") }
-    let(:net_httpservererror_instance) { Net::HTTPServerError.new(1, 500, "ServerError") }
-
     context "HTML rendering" do
       context "when the minion exists" do
         before do
@@ -133,12 +129,10 @@ RSpec.describe NodesController, type: :controller do
         end
 
         it "assigns the master role" do
-          allow(salt).to receive(:orchestrate).and_return(net_httpok_instance, {})
           allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:master)
             .and_return(:master)
           allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:minion)
             .and_return(:minion)
-          allow(net_httpok_instance).to receive(:code).and_return("200")
           post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(response.redirect_url).to eq "http://test.host/nodes"
           # check that all minions are set to minion role
@@ -183,12 +177,10 @@ RSpec.describe NodesController, type: :controller do
         end
 
         it "assigns the master role" do
-          allow(salt).to receive(:orchestrate).and_return(net_httpok_instance, {})
           allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:master)
             .and_return(:master)
           allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:minion)
             .and_return(:minion)
-          allow(net_httpok_instance).to receive(:code).and_return("200")
           post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(response).to have_http_status(:ok)
           # check that all minions are set to minion role
