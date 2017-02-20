@@ -9,8 +9,6 @@ class Minion < ApplicationRecord
   class NotEnoughMinions < StandardError; end
   # Raised when we fail to assign a role on a minion
   class CouldNotAssignRole < StandardError; end
-  # Raised when invalid role is asked for
-  class InvalidRole < StandardError; end
 
   enum highstate: [:not_applied, :pending, :failed, :applied]
   enum role: [:master, :minion]

@@ -21,15 +21,11 @@ class NodesController < ApplicationController
   # rubocop:disable Metrics/AbcSize
   # rubocop:disable Metrics/CyclomaticComplexity
   # rubocop:disable Metrics/PerceivedComplexity
-  def assign
-    minion = Minion.find(params[:node_id])
+  def assign_roles
+    minion = Minion.find(params[:master_id])
     minion_errors = []
 
-    unless Minion.roles.keys.include?(params[:role])
-      raise Minion::InvalidRole, "Could not assign role #{params[:role]}"
-    end
-
-    if minion.assign_role(params[:role].to_sym)
+    if minion.assign_role(:master)
       # assign minion role to all minions if master was assigned correctly
       Minion.where(role: nil).each do |m|
         minion = m
@@ -64,8 +60,7 @@ class NodesController < ApplicationController
       end
     end
   rescue Velum::SaltApi::SaltConnectionException,
-         ActiveRecord::RecordNotFound,
-         Minion::InvalidRole => e
+         ActiveRecord::RecordNotFound => e
     respond_to do |format|
       format.html do
         flash[:error] = e.message

@@ -17,10 +17,9 @@ Rails.application.routes.draw do
   end
 
   resources :nodes, only: [:index, :show, :destroy] do
-    post :assign
-
     collection do
       post :bootstrap
+      post :assign_roles
     end
   end
   resources :updates, only: [:index]

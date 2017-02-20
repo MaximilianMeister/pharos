@@ -120,7 +120,7 @@ RSpec.describe NodesController, type: :controller do
   # rubocop:disable RSpec/AnyInstance
   # rubocop:disable RSpec/ExampleLength
   # rubocop:disable RSpec/NestedGroups
-  describe "POST /nodes/:node_id/assign" do
+  describe "POST /nodes/assign_roles" do
     let(:salt) { Velum::Salt }
     let(:net_httpok_instance) { Net::HTTPOK.new(1, 200, "OK") }
     let(:net_httpservererror_instance) { Net::HTTPServerError.new(1, 500, "ServerError") }
@@ -139,7 +139,7 @@ RSpec.describe NodesController, type: :controller do
           allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:minion)
             .and_return(:minion)
           allow(net_httpok_instance).to receive(:code).and_return("200")
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(response.redirect_url).to eq "http://test.host/nodes"
           # check that all minions are set to minion role
           expect(Minion.where("hostname REGEXP ?", "minion*").map(&:role).uniq).to eq ["minion"]
@@ -147,7 +147,7 @@ RSpec.describe NodesController, type: :controller do
 
         it "fails to assign the master role" do
           allow_any_instance_of(Minion).to receive(:assign_role).with(:master).and_return(false)
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(flash[:error]).to be_present
           expect(response.redirect_url).to eq "http://test.host/nodes"
         end
@@ -155,13 +155,7 @@ RSpec.describe NodesController, type: :controller do
         it "fails to assign the minion role" do
           allow_any_instance_of(Minion).to receive(:assign_role).with(:master).and_return(true)
           allow_any_instance_of(Minion).to receive(:assign_role).with(:minion).and_return(false)
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
-          expect(flash[:error]).to be_present
-          expect(response.redirect_url).to eq "http://test.host/nodes"
-        end
-
-        it "fails due to a wrong role being asked for" do
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :wrong
+          post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(flash[:error]).to be_present
           expect(response.redirect_url).to eq "http://test.host/nodes"
         end
@@ -173,7 +167,7 @@ RSpec.describe NodesController, type: :controller do
         end
 
         it "fails to assign the master role" do
-          post :assign, node_id: 9999999, role: :master
+          post :assign_roles, master_id: 9999999, role: :master
           expect(flash[:error]).to be_present
           expect(response.redirect_url).to eq "http://test.host/nodes"
         end
@@ -195,7 +189,7 @@ RSpec.describe NodesController, type: :controller do
           allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:minion)
             .and_return(:minion)
           allow(net_httpok_instance).to receive(:code).and_return("200")
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(response).to have_http_status(:ok)
           # check that all minions are set to minion role
           expect(Minion.where("hostname REGEXP ?", "minion*").map(&:role).uniq).to eq ["minion"]
@@ -206,19 +200,14 @@ RSpec.describe NodesController, type: :controller do
           allow_any_instance_of(Minion).to receive(:errors).and_return(
             ActiveModel::Errors.new(Minion.find_by(hostname: "master"))
           )
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
+          post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(response).to have_http_status(:unprocessable_entity)
         end
 
         it "fails to assign the minion role" do
           allow_any_instance_of(Minion).to receive(:assign_role).with(:master).and_return(true)
           allow_any_instance_of(Minion).to receive(:assign_role).with(:minion).and_return(false)
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :master
-          expect(response).to have_http_status(:unprocessable_entity)
-        end
-
-        it "fails due to a wrong role being asked for" do
-          post :assign, node_id: Minion.find_by(hostname: "master").id, role: :wrong
+          post :assign_roles, master_id: Minion.find_by(hostname: "master").id, role: :master
           expect(response).to have_http_status(:unprocessable_entity)
         end
       end
@@ -230,7 +219,7 @@ RSpec.describe NodesController, type: :controller do
         end
 
         it "fails to assign the master role" do
-          post :assign, node_id: 9999999, role: :master
+          post :assign_roles, master_id: 9999999, role: :master
           expect(response).to have_http_status(:unprocessable_entity)
         end
       end
