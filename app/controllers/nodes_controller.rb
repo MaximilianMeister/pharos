@@ -19,23 +19,48 @@ class NodesController < ApplicationController
   end
 
   # rubocop:disable Metrics/AbcSize
+  # rubocop:disable Metrics/CyclomaticComplexity
+  # rubocop:disable Metrics/PerceivedComplexity
   def assign
-    @minion = Minion.find(params[:node_id])
+    minion = Minion.find(params[:node_id])
+    minion_errors = []
 
     unless Minion.roles.keys.include?(params[:role])
       raise Minion::InvalidRole, "Could not assign role #{params[:role]}"
     end
 
+    if minion.assign_role(params[:role].to_sym)
+      # assign minion role to all minions if master was assigned correctly
+      Minion.where(role: nil).each do |m|
+        minion = m
+        next if minion.assign_role(:minion)
+        minion_errors.push(
+          minion: minion,
+          errors: minion.errors.full_messages.first || \
+            "Failed to apply minion role to #{minion.hostname}"
+        )
+      end
+    else
+      minion_errors.push(
+        minion: minion,
+        errors: minion.errors.full_messages.first || \
+          "Failed to apply master role to #{minion.hostname}"
+      )
+    end
+
     respond_to do |format|
-      if @minion.assign_role(params[:role])
-        format.html { redirect_to nodes_path }
-        format.json { head :ok }
-      else
+      if minion_errors.any?
+        error_message = minion_errors.map do |m|
+          "#{m[:minion].hostname}: #{m[:errors]}"
+        end.join(", ")
         format.html do
-          flash[:error] = @minion.errors.full_messages.first
+          flash[:error] = error_message
           redirect_to nodes_path
         end
-        format.json { render json: @minion.errors, status: :unprocessable_entity }
+        format.json { render json: error_message, status: :unprocessable_entity }
+      else
+        format.html { redirect_to nodes_path }
+        format.json { head :ok }
       end
     end
   rescue Velum::SaltApi::SaltConnectionException,
@@ -49,6 +74,9 @@ class NodesController < ApplicationController
       format.json { render json: e.message, status: :unprocessable_entity }
     end
   end
+  # rubocop:enable Metrics/AbcSize
+  # rubocop:enable Metrics/CyclomaticComplexity
+  # rubocop:enable Metrics/PerceivedComplexity
 
   # Bootstraps the cluster. This method will search for minions missing an
   # assigned role, assign a random role to it, and then call the salt
