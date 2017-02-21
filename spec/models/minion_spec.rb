@@ -7,7 +7,18 @@ describe Minion do
   # rubocop:disable RSpec/ExampleLength
   describe ".assign_roles!" do
     let(:minions) do
-      FactoryGirl.create_list(:minion, 3, role: nil)
+      described_class.create! [
+        { hostname: "master.example.com" },
+        { hostname: "minion0.example.com" },
+        { hostname: "minion1.example.com" }
+      ]
+    end
+    let(:role_payload) do
+      {
+        "master.example.com"  => ["master"],
+        "minion0.example.com" => ["minion"],
+        "minion1.example.com" => ["minion"]
+      }
     end
 
     context "when a master role cannot be assigned" do
@@ -22,7 +33,7 @@ describe Minion do
         allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
           .with(:minion).and_return(true)
         # rubocop:enable RSpec/AnyInstance
-        expect(described_class.assign_roles!(roles: { master: [minions.first.hostname] })).to eq(
+        expect(described_class.assign_roles!(roles: role_payload)).to eq(
           minions[0].hostname => false,
           minions[1].hostname => true,
           minions[2].hostname => true
@@ -42,7 +53,7 @@ describe Minion do
         allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
           .with(:minion).and_return(false)
         # rubocop:enable RSpec/AnyInstance
-        expect(described_class.assign_roles!(roles: { master: [minions.first.hostname] })).to eq(
+        expect(described_class.assign_roles!(roles: role_payload)).to eq(
           minions[0].hostname => true,
           minions[1].hostname => false,
           minions[2].hostname => false
@@ -66,14 +77,8 @@ describe Minion do
         # rubocop:enable RSpec/AnyInstance
         expect(
           described_class.assign_roles!(
-            # rubocop:disable Style/AlignHash
-            roles: {
-              master: [minions[0].hostname],
-              minion: [minions[1].hostname]
-            },
-            default_role: :another_role
+            roles: role_payload.except("minion1.example.com"), default_role: :another_role
           )
-          # rubocop:enable Style/AlignHash
         ).to eq(
           minions[0].hostname => true,
           minions[1].hostname => true,
@@ -92,14 +97,7 @@ describe Minion do
       end
 
       it "assigns the default role to the rest of the available minions" do
-        # rubocop:disable Style/AlignHash
-        described_class.assign_roles!(
-          roles: {
-            master: [minions.first.hostname]
-          },
-          default_role: :minion
-        )
-        # rubocop:enable Style/AlignHash
+        described_class.assign_roles!(roles: role_payload)
 
         expect(described_class.all.map(&:role).sort).to eq(["master", "minion", "minion"])
       end
@@ -115,7 +113,7 @@ describe Minion do
       end
 
       it "assigns the minion role to the rest of the available minions" do
-        described_class.assign_roles!(roles: { master: [minions.first.hostname] })
+        described_class.assign_roles!(roles: role_payload)
 
         expect(described_class.all.map(&:role)).to eq(["master", "minion", "minion"])
       end
@@ -131,9 +129,7 @@ describe Minion do
       end
 
       it "assigns the minion role to specific minions" do
-        described_class.assign_roles!(
-          roles: { master: [minions.first.hostname], minion: [minions.last.hostname] }
-        )
+        described_class.assign_roles!(roles: role_payload)
 
         expect(described_class.all.last.role).to eq("minion")
       end
@@ -145,9 +141,7 @@ describe Minion do
       allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
         .and_return(true)
       # rubocop:enable RSpec/AnyInstance
-      roles = described_class.assign_roles!(
-        roles: { master: [minions.first.hostname] }, default_role: :minion
-      )
+      roles = described_class.assign_roles!(roles: role_payload)
 
       expect(roles).to eq(
         minions[0].hostname => true,

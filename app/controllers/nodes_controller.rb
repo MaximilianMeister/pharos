@@ -28,8 +28,8 @@ class NodesController < ApplicationController
     @minion = Minion.find(params[:id])
   end
 
-  def assign_roles
-    assigned = Minion.assign_roles!(roles: { master: [assign_roles_params] })
+  def update
+    assigned = Minion.assign_roles!(roles: nodes_params)
 
     respond_to do |format|
       if assigned.values.include?(false)
@@ -52,7 +52,7 @@ class NodesController < ApplicationController
   def bootstrap
     if Minion.where(role: nil).count > 1
       # choose first minion to be the master
-      Minion.assign_roles!(roles: { master: [Minion.first.hostname] })
+      Minion.assign_roles!(roles: { Minion.first.hostname => ["master"] })
       Velum::Salt.orchestrate
     else
       flash[:alert] = "Not enough Workers to bootstrap. Please start at least one worker."
@@ -66,8 +66,8 @@ class NodesController < ApplicationController
 
   protected
 
-  def assign_roles_params
-    params.require(:hostname)
+  def nodes_params
+    params.require(:roles)
   end
 
   def failed_assigned_nodes(assigned)
