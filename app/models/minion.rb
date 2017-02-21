@@ -9,37 +9,67 @@ class Minion < ApplicationRecord
   class NotEnoughMinions < StandardError; end
   # Raised when we fail to assign a role on a minion
   class CouldNotAssignRole < StandardError; end
+  # Raised when Minion doesn't exist
+  class NonExistingMinion < StandardError; end
 
   enum highstate: [:not_applied, :pending, :failed, :applied]
   enum role: [:master, :minion]
 
   validates :hostname, presence: true, uniqueness: true
 
-  # This method is used to assign the specified roles to Minions which do not
-  # have a roles already assigned (available minions).
-  # roles param are the roles we absolutely have to assign. If we can't assign
-  # one of those, the method will raise.
-  # default_role param can be set if we want all the rest of the available
-  # minions to get a default role.
-  # Returns the ids of the minions on which a roles has been assigned.
-  def self.assign_roles(roles: [], default_role: nil)
-    minions = Minion.where(role: nil)
+  # Example:
+  #   Minion.assign_roles(
+  #     roles: {
+  #       master: ["master.example.com"],
+  #       minion: ["minion1.example.com"]
+  #     },
+  #     default_role: :dns
+  #   )
+  # rubocop:disable Metrics/AbcSize
+  # rubocop:disable Metrics/CyclomaticComplexity
+  # rubocop:disable Metrics/PerceivedComplexity
+  def self.assign_roles(roles: {}, default_role: :minion)
+    if roles[:master].any? && !Minion.exists?(hostname: roles[:master])
+      raise NonExistingMinion, "Failed to process non existing minion: #{roles[:master].first}"
+    end
+    master = Minion.find_by(hostname: roles[:master].first)
+    # choose requested minions or all other than master
+    minions = Minion.where(role: roles[:minion]).where.not(hostname: roles[:master].first)
 
-    # only the needed number of minions or all if we have a default role
-    minions = minions.limit(roles.size) unless default_role
-
-    raise NotEnoughMinions if minions.count < roles.size
-
+    # assign master if requested
     assigned_ids = []
+    if master
+      # rubocop:disable Style/GuardClause
+      if master.assign_role(:master)
+        assigned_ids << master.id
+      else
+        raise CouldNotAssignRole, "Failed to assign master role to #{master.hostname}"
+      end
+      # rubocop:enable Style/GuardClause
+    end
+
     minions.find_each do |minion|
-      unless minion.assign_role(roles.pop || default_role)
-        raise CouldNotAssignRole
+      unless minion.assign_role(:minion)
+        raise CouldNotAssignRole, "Failed to assign minion role to #{minion.hostname}"
       end
       assigned_ids << minion.id
     end
 
+    # assign default role if there is any minion left with no role
+    if default_role
+      Minion.where(role: nil).find_each do |minion|
+        unless minion.assign_role(default_role)
+          raise CouldNotAssignRole, "Failed to assign #{default_role} role to #{minion.hostname}"
+        end
+        assigned_ids << minion.id
+      end
+    end
+
     assigned_ids
   end
+  # rubocop:enable Metrics/AbcSize
+  # rubocop:enable Metrics/CyclomaticComplexity
+  # rubocop:enable Metrics/PerceivedComplexity
 
   # rubocop:disable SkipsModelValidations
   # Assigns a role to this minion locally in the database, and send that role

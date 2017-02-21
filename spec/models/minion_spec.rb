@@ -4,29 +4,61 @@ require "rails_helper"
 describe Minion do
   it { is_expected.to validate_uniqueness_of(:hostname) }
 
+  # rubocop:disable RSpec/ExampleLength
   describe ".assign_roles" do
     let(:minions) do
       FactoryGirl.create_list(:minion, 3, role: nil)
     end
 
-    context "when there are not enough Minions" do
-      it "raises NotEnoughMinions" do
-        expect { described_class.assign_roles(roles: [:master, :minion]) }
-          .to raise_error(Minion::NotEnoughMinions)
-      end
-    end
-
-    context "when a role cannot be assigned" do
+    context "when a master role cannot be assigned" do
       before do
         minions
-        # rubocop:disable RSpec/AnyInstance
-        allow_any_instance_of(described_class).to receive(:assign_role).and_return(false)
-        # rubocop:enable RSpec/AnyInstance
       end
 
-      it "raises CouldNotAssignRole" do
-        expect { described_class.assign_roles(roles: [:master]) }
-          .to raise_error(Minion::CouldNotAssignRole)
+      it "raises CouldNotAssignRole for master" do
+        # rubocop:disable RSpec/AnyInstance
+        allow_any_instance_of(described_class).to receive(:assign_role).with(:master)
+          .and_return(false)
+        # rubocop:enable RSpec/AnyInstance
+        expect { described_class.assign_roles(roles: { master: [minions.first.hostname] }) }.to(
+          raise_error(Minion::CouldNotAssignRole)
+        )
+      end
+
+      it "raises CouldNotAssignRole for minion" do
+        # rubocop:disable RSpec/AnyInstance
+        allow_any_instance_of(described_class).to receive(:assign_role).with(:master)
+          .and_return(true)
+        allow_any_instance_of(described_class).to receive(:assign_role).with(:minion)
+          .and_return(false)
+        # rubocop:enable RSpec/AnyInstance
+        expect { described_class.assign_roles(roles: { master: [minions.first.hostname] }) }.to(
+          raise_error(Minion::CouldNotAssignRole)
+        )
+      end
+
+      it "raises CouldNotAssignRole for a default_role" do
+        # rubocop:disable RSpec/AnyInstance
+        allow_any_instance_of(described_class).to receive(:assign_role).with(:master)
+          .and_return(true)
+        allow_any_instance_of(described_class).to receive(:assign_role).with(:minion)
+          .and_return(true)
+        allow_any_instance_of(described_class).to receive(:assign_role).with(:another_role)
+          .and_return(false)
+        allow(described_class).to receive(:where)
+          .and_return(described_class.where(hostname: minions[2].hostname))
+        # rubocop:enable RSpec/AnyInstance
+        expect do
+          described_class.assign_roles(
+            # rubocop:disable Style/AlignHash
+            roles: {
+              master: [minions[0].hostname],
+              minion: [minions[1].hostname]
+            },
+            default_role: :another_role
+          )
+          # rubocop:enable Style/AlignHash
+        end.to raise_error(Minion::CouldNotAssignRole)
       end
     end
 
@@ -40,7 +72,14 @@ describe Minion do
       end
 
       it "assigns the default role to the rest of the available minions" do
-        described_class.assign_roles(roles: [:master], default_role: :minion)
+        # rubocop:disable Style/AlignHash
+        described_class.assign_roles(
+          roles: {
+            master: [minions.first.hostname]
+          },
+          default_role: :minion
+        )
+        # rubocop:enable Style/AlignHash
 
         expect(described_class.all.map(&:role).sort).to eq(["master", "minion", "minion"])
       end
@@ -55,10 +94,28 @@ describe Minion do
         # rubocop:enable RSpec/AnyInstance
       end
 
-      it "assigns the default role to the rest of the available minions" do
-        described_class.assign_roles(roles: [:master])
+      it "assigns the minion role to the rest of the available minions" do
+        described_class.assign_roles(roles: { master: [minions.first.hostname] })
 
-        expect(described_class.all.map(&:role)).to eq(["master", nil, nil])
+        expect(described_class.all.map(&:role)).to eq(["master", "minion", "minion"])
+      end
+    end
+
+    context "when explicit minion role is set" do
+      before do
+        minions
+        # rubocop:disable RSpec/AnyInstance
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
+          .and_return(true)
+        # rubocop:enable RSpec/AnyInstance
+      end
+
+      it "assigns the minion role to specific minions" do
+        described_class.assign_roles(
+          roles: { master: [minions.first.hostname], minion: [minions.last.hostname] }
+        )
+
+        expect(described_class.all.last.role).to eq("minion")
       end
     end
 
@@ -68,7 +125,9 @@ describe Minion do
       allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
         .and_return(true)
       # rubocop:enable RSpec/AnyInstance
-      ids = described_class.assign_roles(roles: [:master], default_role: :minion)
+      ids = described_class.assign_roles(
+        roles: { master: [minions.first.hostname] }, default_role: :minion
+      )
 
       expect(ids.sort).to eq(minions.map(&:id).sort)
     end
@@ -122,4 +181,5 @@ describe Minion do
       end
     end
   end
+  # rubocop:enable RSpec/ExampleLength
 end

@@ -18,49 +18,15 @@ class NodesController < ApplicationController
     @minion = Minion.find(params[:id])
   end
 
-  # rubocop:disable Metrics/AbcSize
-  # rubocop:disable Metrics/CyclomaticComplexity
-  # rubocop:disable Metrics/PerceivedComplexity
   def assign_roles
-    minion = Minion.find(params[:master_id])
-    minion_errors = []
-
-    if minion.assign_role(:master)
-      # assign minion role to all minions if master was assigned correctly
-      Minion.where(role: nil).each do |m|
-        minion = m
-        next if minion.assign_role(:minion)
-        minion_errors.push(
-          minion: minion,
-          errors: minion.errors.full_messages.first || \
-            "Failed to apply minion role to #{minion.hostname}"
-        )
-      end
-    else
-      minion_errors.push(
-        minion: minion,
-        errors: minion.errors.full_messages.first || \
-          "Failed to apply master role to #{minion.hostname}"
-      )
-    end
+    Minion.assign_roles(roles: { master: [params[:hostname]] })
 
     respond_to do |format|
-      if minion_errors.any?
-        error_message = minion_errors.map do |m|
-          "#{m[:minion].hostname}: #{m[:errors]}"
-        end.join(", ")
-        format.html do
-          flash[:error] = error_message
-          redirect_to nodes_path
-        end
-        format.json { render json: error_message, status: :unprocessable_entity }
-      else
-        format.html { redirect_to nodes_path }
-        format.json { head :ok }
-      end
+      format.html { redirect_to nodes_path }
+      format.json { head :ok }
     end
-  rescue Velum::SaltApi::SaltConnectionException,
-         ActiveRecord::RecordNotFound => e
+  rescue Minion::CouldNotAssignRole,
+         Minion::NonExistingMinion => e
     respond_to do |format|
       format.html do
         flash[:error] = e.message
@@ -69,16 +35,14 @@ class NodesController < ApplicationController
       format.json { render json: e.message, status: :unprocessable_entity }
     end
   end
-  # rubocop:enable Metrics/AbcSize
-  # rubocop:enable Metrics/CyclomaticComplexity
-  # rubocop:enable Metrics/PerceivedComplexity
 
   # Bootstraps the cluster. This method will search for minions missing an
   # assigned role, assign a random role to it, and then call the salt
   # orchestration.
   def bootstrap
     if Minion.where(role: nil).count > 1
-      Minion.assign_roles(roles: [:master], default_role: :minion)
+      # choose first minion to be the master
+      Minion.assign_roles(roles: { master: [Minion.first.hostname] })
       Velum::Salt.orchestrate
     else
       flash[:alert] = "Not enough Workers to bootstrap. Please start at least one worker."
