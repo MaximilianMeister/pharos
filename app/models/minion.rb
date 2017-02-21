@@ -4,11 +4,6 @@ require "velum/salt_minion"
 
 # Minion represents the minions that have been registered in this application.
 class Minion < ApplicationRecord
-  # Raised when trying to bootstrap more minions than those available
-  # (E.g. assign roles [:master, :minion] when there is only one minion)
-  class NotEnoughMinions < StandardError; end
-  # Raised when we fail to assign a role on a minion
-  class CouldNotAssignRole < StandardError; end
   # Raised when Minion doesn't exist
   class NonExistingMinion < StandardError; end
 
@@ -25,65 +20,46 @@ class Minion < ApplicationRecord
   #     },
   #     default_role: :dns
   #   )
-  # rubocop:disable Metrics/AbcSize
-  # rubocop:disable Metrics/CyclomaticComplexity
-  # rubocop:disable Metrics/PerceivedComplexity
-  def self.assign_roles(roles: {}, default_role: :minion)
+  def self.assign_roles!(roles: {}, default_role: :minion)
     if roles[:master].any? && !Minion.exists?(hostname: roles[:master])
       raise NonExistingMinion, "Failed to process non existing minion: #{roles[:master].first}"
     end
     master = Minion.find_by(hostname: roles[:master].first)
     # choose requested minions or all other than master
-    minions = Minion.where(role: roles[:minion]).where.not(hostname: roles[:master].first)
+    minions = Minion.where(hostname: roles[:minion]).where.not(hostname: roles[:master].first)
 
     # assign master if requested
-    assigned_ids = []
-    if master
-      # rubocop:disable Style/GuardClause
-      if master.assign_role(:master)
-        assigned_ids << master.id
-      else
-        raise CouldNotAssignRole, "Failed to assign master role to #{master.hostname}"
-      end
-      # rubocop:enable Style/GuardClause
-    end
+    {}.tap do |ret|
+      ret[master.hostname] = master.assign_role(:master) if master
 
-    minions.find_each do |minion|
-      unless minion.assign_role(:minion)
-        raise CouldNotAssignRole, "Failed to assign minion role to #{minion.hostname}"
+      minions.find_each do |minion|
+        ret[minion.hostname] = minion.assign_role(:minion)
       end
-      assigned_ids << minion.id
-    end
 
-    # assign default role if there is any minion left with no role
-    if default_role
-      Minion.where(role: nil).find_each do |minion|
-        unless minion.assign_role(default_role)
-          raise CouldNotAssignRole, "Failed to assign #{default_role} role to #{minion.hostname}"
+      # assign default role if there is any minion left with no role
+      if default_role
+        Minion.where(role: nil).find_each do |minion|
+          ret[minion.hostname] = minion.assign_role(default_role)
         end
-        assigned_ids << minion.id
       end
     end
-
-    assigned_ids
   end
-  # rubocop:enable Metrics/AbcSize
-  # rubocop:enable Metrics/CyclomaticComplexity
-  # rubocop:enable Metrics/PerceivedComplexity
 
   # rubocop:disable SkipsModelValidations
   # Assigns a role to this minion locally in the database, and send that role
   # to salt subsystem.
   def assign_role(new_role)
     return false if role.present?
+    success = false
 
     Minion.transaction do
       # We set highstate to pending since we just assigned a new role
-      update_columns(role:      Minion.roles[new_role],
-                     highstate: Minion.highstates[:pending])
-      salt.assign_role new_role
+      success = update_columns(role:      Minion.roles[new_role],
+                               highstate: Minion.highstates[:pending])
+      break unless success
+      success = salt.assign_role new_role
     end
-    true
+    success
   rescue Velum::SaltApi::SaltConnectionException
     errors.add(:base, "Failed to apply role #{new_role} to #{hostname}")
     false

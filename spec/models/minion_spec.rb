@@ -5,7 +5,7 @@ describe Minion do
   it { is_expected.to validate_uniqueness_of(:hostname) }
 
   # rubocop:disable RSpec/ExampleLength
-  describe ".assign_roles" do
+  describe ".assign_roles!" do
     let(:minions) do
       FactoryGirl.create_list(:minion, 3, role: nil)
     end
@@ -15,41 +15,57 @@ describe Minion do
         minions
       end
 
-      it "raises CouldNotAssignRole for master" do
+      it "returns a hash with the master hostname false" do
         # rubocop:disable RSpec/AnyInstance
-        allow_any_instance_of(described_class).to receive(:assign_role).with(:master)
-          .and_return(false)
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
+          .with(:master).and_return(false)
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
+          .with(:minion).and_return(true)
         # rubocop:enable RSpec/AnyInstance
-        expect { described_class.assign_roles(roles: { master: [minions.first.hostname] }) }.to(
-          raise_error(Minion::CouldNotAssignRole)
+        expect(described_class.assign_roles!(roles: { master: [minions.first.hostname] })).to eq(
+          minions[0].hostname => false,
+          minions[1].hostname => true,
+          minions[2].hostname => true
         )
       end
+    end
 
-      it "raises CouldNotAssignRole for minion" do
-        # rubocop:disable RSpec/AnyInstance
-        allow_any_instance_of(described_class).to receive(:assign_role).with(:master)
-          .and_return(true)
-        allow_any_instance_of(described_class).to receive(:assign_role).with(:minion)
-          .and_return(false)
-        # rubocop:enable RSpec/AnyInstance
-        expect { described_class.assign_roles(roles: { master: [minions.first.hostname] }) }.to(
-          raise_error(Minion::CouldNotAssignRole)
-        )
+    context "when a minion role cannot be assigned" do
+      before do
+        minions
       end
 
-      it "raises CouldNotAssignRole for a default_role" do
+      it "returns a hash with the minion hostnames false" do
         # rubocop:disable RSpec/AnyInstance
-        allow_any_instance_of(described_class).to receive(:assign_role).with(:master)
-          .and_return(true)
-        allow_any_instance_of(described_class).to receive(:assign_role).with(:minion)
-          .and_return(true)
-        allow_any_instance_of(described_class).to receive(:assign_role).with(:another_role)
-          .and_return(false)
-        allow(described_class).to receive(:where)
-          .and_return(described_class.where(hostname: minions[2].hostname))
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
+          .with(:master).and_return(true)
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
+          .with(:minion).and_return(false)
         # rubocop:enable RSpec/AnyInstance
-        expect do
-          described_class.assign_roles(
+        expect(described_class.assign_roles!(roles: { master: [minions.first.hostname] })).to eq(
+          minions[0].hostname => true,
+          minions[1].hostname => false,
+          minions[2].hostname => false
+        )
+      end
+    end
+
+    context "when a default role cannot be assigned" do
+      before do
+        minions
+      end
+
+      it "returns a hash with the default_role hostname false" do
+        # rubocop:disable RSpec/AnyInstance
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:master)
+          .and_return(true)
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:minion)
+          .and_return(true)
+        allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role).with(:another_role)
+          .and_return(false)
+        # rubocop:enable RSpec/AnyInstance
+        expect(
+          described_class.assign_roles!(
             # rubocop:disable Style/AlignHash
             roles: {
               master: [minions[0].hostname],
@@ -58,7 +74,11 @@ describe Minion do
             default_role: :another_role
           )
           # rubocop:enable Style/AlignHash
-        end.to raise_error(Minion::CouldNotAssignRole)
+        ).to eq(
+          minions[0].hostname => true,
+          minions[1].hostname => true,
+          minions[2].hostname => false
+        )
       end
     end
 
@@ -73,7 +93,7 @@ describe Minion do
 
       it "assigns the default role to the rest of the available minions" do
         # rubocop:disable Style/AlignHash
-        described_class.assign_roles(
+        described_class.assign_roles!(
           roles: {
             master: [minions.first.hostname]
           },
@@ -95,7 +115,7 @@ describe Minion do
       end
 
       it "assigns the minion role to the rest of the available minions" do
-        described_class.assign_roles(roles: { master: [minions.first.hostname] })
+        described_class.assign_roles!(roles: { master: [minions.first.hostname] })
 
         expect(described_class.all.map(&:role)).to eq(["master", "minion", "minion"])
       end
@@ -111,7 +131,7 @@ describe Minion do
       end
 
       it "assigns the minion role to specific minions" do
-        described_class.assign_roles(
+        described_class.assign_roles!(
           roles: { master: [minions.first.hostname], minion: [minions.last.hostname] }
         )
 
@@ -119,17 +139,21 @@ describe Minion do
       end
     end
 
-    it "returns the ids of the minions that were assigned a role" do
+    it "returns a hash of the minions that were assigned a role" do
       minions
       # rubocop:disable RSpec/AnyInstance
       allow_any_instance_of(Velum::SaltMinion).to receive(:assign_role)
         .and_return(true)
       # rubocop:enable RSpec/AnyInstance
-      ids = described_class.assign_roles(
+      roles = described_class.assign_roles!(
         roles: { master: [minions.first.hostname] }, default_role: :minion
       )
 
-      expect(ids.sort).to eq(minions.map(&:id).sort)
+      expect(roles).to eq(
+        minions[0].hostname => true,
+        minions[1].hostname => true,
+        minions[2].hostname => true
+      )
     end
   end
 

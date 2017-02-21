@@ -141,6 +141,7 @@ RSpec.describe NodesController, type: :controller do
 
         it "fails to assign the master role" do
           allow_any_instance_of(Minion).to receive(:assign_role).with(:master).and_return(false)
+          allow_any_instance_of(Minion).to receive(:assign_role).with(:minion).and_return(false)
           post :assign_roles, hostname: Minion.find_by(hostname: "master").hostname
           expect(flash[:error]).to be_present
           expect(response.redirect_url).to eq "http://test.host/nodes"
@@ -190,6 +191,7 @@ RSpec.describe NodesController, type: :controller do
 
         it "fails to assign the master role" do
           allow_any_instance_of(Minion).to receive(:assign_role).with(:master).and_return(false)
+          allow_any_instance_of(Minion).to receive(:assign_role).with(:minion).and_return(false)
           allow_any_instance_of(Minion).to receive(:errors).and_return(
             ActiveModel::Errors.new(Minion.find_by(hostname: "master"))
           )
