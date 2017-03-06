@@ -17,7 +17,7 @@ h1 Nodes
       tr
         th
           | Id
-        th
+        th.text-center
           | Status
         th
           | Hostname
@@ -25,14 +25,14 @@ h1 Nodes
           | Role
         th
           | Highstate
-        th
+        th.text-center
           | Master
     tbody
       - Minion.all.each do |m|
         tr
           th
             | #{m.id}
-          td
+          td.text-center
             - if m.role
               i.fa.fa-check-circle-o.text-success.fa-2x aria-hidden="true"
             - else
@@ -45,7 +45,7 @@ h1 Nodes
             | #{m.role}
           td
             | #{m.highstate}
-          td
+          td.text-center
             - if m.role == "master"
               = radio_button_tag "roles[master]", m.id, true, disabled: true
             - elsif Minion.all.collect(&:role).include?("master")
