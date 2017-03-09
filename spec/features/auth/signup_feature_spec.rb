@@ -10,7 +10,7 @@ feature "Signup feature" do
 
   scenario "I am able to signup from login page" do
     visit new_user_session_url
-    click_link("Sign up")
+    click_link("Create an account")
     expect(current_path).to eq new_user_registration_path
   end
 
@@ -26,7 +26,7 @@ feature "Signup feature" do
     fill_in "user_email", with: user.email
     fill_in "user_password", with: user.password
     fill_in "user_password_confirmation", with: user.password
-    click_button("Create admin")
+    click_button("Create Admin")
 
     expect(page).to have_content("You have signed up successfully")
   end
