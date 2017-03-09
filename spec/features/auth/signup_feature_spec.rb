@@ -30,22 +30,4 @@ feature "Signup feature" do
 
     expect(page).to have_content("You have signed up successfully")
   end
-
-  scenario "It reports a wrong email format" do
-    fill_in "user_email", with: "gibberish"
-    fill_in "user_password", with: "12341234"
-    fill_in "user_password_confirmation", with: "12341234"
-    click_button("Create admin")
-
-    expect(page).to have_content("Email is invalid")
-  end
-
-  scenario "It reports password and password confirmation not matching" do
-    fill_in "user_email", with: user.email
-    fill_in "user_password", with: "12341234"
-    fill_in "user_password_confirmation", with: "532"
-    click_button("Create admin")
-
-    expect(page).to have_content("Password confirmation doesn't match Password")
-  end
 end

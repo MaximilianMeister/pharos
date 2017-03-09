@@ -23,14 +23,6 @@ feature "Login feature" do
     expect(page).to have_content("Configuration")
   end
 
-  scenario "Wrong password results in an error message" do
-    fill_in "user_email", with: "foo"
-    fill_in "user_password", with: "bar"
-    find("input[type=submit]").click
-
-    expect(page).to have_content("Invalid Email or password")
-  end
-
   scenario "When guest tries to access dashboard - he is redirected to the login page" do
     visit root_path
     expect(page).to have_content("Log in")
