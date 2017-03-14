@@ -1,4 +1,3 @@
-# Velum
 
 | master | Code Climate |
 |--------|------|--------------|
