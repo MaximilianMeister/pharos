@@ -1,28 +1,28 @@
 source "https://rubygems.org"
 
-gem "puma"
-gem "rails", "4.2.7.1"
+gem "rails", "~> 4.2"
+gem "puma", ">= 3"
 
 gem "jbuilder", "~> 2.5"
-gem "jquery-rails"
-gem "slim"
-gem "font-awesome-rails"
+gem "jquery-rails", ">= 4.3"
+gem "slim", ">= 3"
+gem "font-awesome-rails", ">= 4.7"
 
 # NOTE: this is no longer needed in Rails 5. See
 # https://github.com/heroku/rails_stdout_logging#rails-5 for instructions on how
 # to transition.
-gem "rails_stdout_logging", group: [:development, :staging, :production]
+gem "rails_stdout_logging", "~> 0.0.5", group: [:development, :staging, :production]
 
-gem "bcrypt", "~> 3.1.7"
-gem "mysql2"
+gem "bcrypt", "~> 3.1"
+gem "mysql2", "~> 0.4.10"
 
-gem "gravatar_image_tag"
-gem "devise"
-gem "kubeclient", "~> 2.3.0"
-gem "devise_ldap_authenticatable"
-gem "net-ldap", require: "net/ldap"
+gem "gravatar_image_tag", "~> 1.2.0"
+gem "devise", "~> 4.3"
+gem "kubeclient", "~> 2.3"
 
-gem "openid_connect"
+gem "devise_ldap_authenticatable", "~> 0.8"
+gem "net-ldap", "~> 0.11", require: "net/ldap"
+gem "openid_connect", "~> 1.1"
 
 # Assets group.
 #
@@ -38,7 +38,7 @@ gem "openid_connect"
 
 unless ENV["IGNORE_ASSETS"] == "yes"
   gem "sass-rails", "~> 5.0"
-  gem "bootstrap-sass"
+  gem "bootstrap-sass", "~> 3.3"
   gem "uglifier", ">= 1.3.0"
 end
 
