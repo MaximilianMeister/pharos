@@ -202,6 +202,7 @@
       <encrypted config:type="boolean">true</encrypted>
     </user>
   </users>
+<% if @user && @pass %>
   <suse_register>
     <do_registration config:type="boolean"><%= @do_registration %></do_registration>
     <% unless @suse_regcode.blank? %>
@@ -213,4 +214,5 @@
       <reg_server><%= @suse_smt_url %></reg_server>
     <% end %>
   </suse_register>
+<% end %>
 </profile>

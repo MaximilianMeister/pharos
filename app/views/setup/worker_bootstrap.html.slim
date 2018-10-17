@@ -27,7 +27,7 @@ h2 Tips
 p
   | You don't need to boot each node by hand. More information on how to embed an AutoYaST profile in your PXE environment is available&nbsp;
   a href="https://www.suse.com/documentation/sles-12/singlehtml/book_autoyast/book_autoyast.html#bootmedium.pxe" here
-  | . Where <strong>#{autoyast_url host: @controller_node, protocol: :http}</strong> is the real, generated path to the AutoYaST profile served by the dashboard.
+  | . Where <strong>#{autoyast_url(host: @controller_node, protocol: :http).gsub("://", "://username:password@")}</strong> is the real, generated path to the AutoYaST profile served by the dashboard.
 
 - if setup_done?
   .clearfix.text-right.steps-container
